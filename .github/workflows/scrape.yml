@@ -1,5 +1,4 @@
 name: Scrape Banks
-
 on:
   schedule:
     - cron: '0 4,9 * * *'
