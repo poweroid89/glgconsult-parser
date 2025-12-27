@@ -39,11 +39,11 @@ export async function parseHSBC() {
     const dom = new JSDOM(html);
     const document = dom.window.document;
 
-    const tableBody = document.querySelector('#banknote-rates tbody');
+    const tableBody = document.querySelector('#content_main_basicTable_2 tbody');
     const exchangeRates: Record<string, { buy: number; sell: number }> = {};
 
     if (tableBody) {
-        Array.from(tableBody.querySelectorAll('tr')).slice(1).forEach((row) => {
+        Array.from(tableBody.querySelectorAll('tr')).forEach((row) => {
             const cells = row.querySelectorAll('td');
             const currency = cells[0]?.textContent?.match(/\(([^)]+)\)/)?.[1]?.trim();
 
