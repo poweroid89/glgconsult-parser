@@ -30,14 +30,14 @@ export async function parseOCBC() {
         'Cache-Control': 'no-cache',
         'Upgrade-Insecure-Requests': '1',
     });
-    await page.goto('https://www.ocbc.id/en/nilai-tukar-mata-uang-asing');
+    await page.goto('https://www.ocbc.id/en/kurs');
 
     const html = await page.content();
     await browser.close();
     const dom = new JSDOM(html);
     const document = dom.window.document;
 
-    const tableBody = document.querySelector('.ocbc-widget-xr-tbl tbody');
+    const tableBody = document.querySelector('.on-table-kurs tbody');
     const exchangeRates: Record<string, { buy: number; sell: number }> = {};
 
     if (tableBody) {
