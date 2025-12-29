@@ -32,6 +32,8 @@ export async function parsePermata() {
     });
     await page.goto('https://www.permatabank.com/id/kurs/nilai-tukar-mata-uang');
 
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
     const html = await page.content();
     await browser.close();
 
