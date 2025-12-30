@@ -45,8 +45,8 @@ export async function parseOCBC() {
             const cells = row.querySelectorAll('td');
             const currency = cells[0]?.textContent?.trim();
             if (currency && currency !== 'IDR') {
-                const buy = parseNumberSafe((cells[1]?.textContent?.trim() ?? '0').replace(/,/g, ''));
-                const sell = parseNumberSafe((cells[2]?.textContent?.trim() ?? '0').replace(/,/g, ''));
+                const buy  = parseNumberSafe(cells[1]?.textContent ?? '0');
+                const sell = parseNumberSafe(cells[2]?.textContent ?? '0');
                 exchangeRates[currency] = { buy, sell };
             }
         });
@@ -58,27 +58,18 @@ export async function parseOCBC() {
 function parseNumberSafe(value: unknown): number {
     if (typeof value !== 'string') return 0;
 
-    let s = value
-        .replace(/\s/g, '')
-        .replace(/[^\d.,-]/g, '');
+    let v = value.trim();
 
-    if (!s) return 0;
-
-    const lastDot = s.lastIndexOf('.');
-    const lastComma = s.lastIndexOf(',');
-
-    let decimalSeparator: '.' | ',' | null = null;
-
-    if (lastDot > lastComma) decimalSeparator = '.';
-    else if (lastComma > lastDot) decimalSeparator = ',';
-
-    if (decimalSeparator) {
-        const thousandsSeparator = decimalSeparator === '.' ? ',' : '.';
-
-        s = s.replace(new RegExp('\\' + thousandsSeparator, 'g'), '');
-        s = s.replace(decimalSeparator, '.');
+    if (v.includes('.') && v.includes(',')) {
+        v = v.replace(/\./g, '').replace(',', '.');
+    }
+    else if (v.includes(',')) {
+        v = v.replace(',', '.');
+    }
+    else if (v.includes('.')) {
+        v = v.replace(/\./g, '');
     }
 
-    const result = Number(s);
-    return Number.isFinite(result) ? result : 0;
+    const num = Number(v);
+    return isNaN(num) ? 0 : num;
 }
