@@ -57,8 +57,28 @@ export async function parseOCBC() {
 
 function parseNumberSafe(value: unknown): number {
     if (typeof value !== 'string') return 0;
-    const cleaned = value.replace(/[^\d.-]/g, '').trim();
-    if (cleaned === '' || isNaN(Number(cleaned))) return 0;
 
-    return parseFloat(cleaned);
+    let s = value
+        .replace(/\s/g, '')
+        .replace(/[^\d.,-]/g, '');
+
+    if (!s) return 0;
+
+    const lastDot = s.lastIndexOf('.');
+    const lastComma = s.lastIndexOf(',');
+
+    let decimalSeparator: '.' | ',' | null = null;
+
+    if (lastDot > lastComma) decimalSeparator = '.';
+    else if (lastComma > lastDot) decimalSeparator = ',';
+
+    if (decimalSeparator) {
+        const thousandsSeparator = decimalSeparator === '.' ? ',' : '.';
+
+        s = s.replace(new RegExp('\\' + thousandsSeparator, 'g'), '');
+        s = s.replace(decimalSeparator, '.');
+    }
+
+    const result = Number(s);
+    return Number.isFinite(result) ? result : 0;
 }
