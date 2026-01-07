@@ -31,7 +31,7 @@ export async function parseOCBC() {
         'Upgrade-Insecure-Requests': '1',
     });
     await page.goto('https://www.ocbc.id/en/kurs');
-
+    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 5000)));
     const html = await page.content();
     await browser.close();
     const dom = new JSDOM(html);
