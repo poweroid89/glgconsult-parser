@@ -32,6 +32,7 @@ export async function parseDanamon() {
     });
     await page.goto('https://www.danamon.co.id/');
 
+    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 5000)));
     const html = await page.content();
     await browser.close();
 
