@@ -30,12 +30,16 @@ export async function parseUOB() {
         'Cache-Control': 'no-cache',
         'Upgrade-Insecure-Requests': '1',
     });
+    // Маскуємо headless
+    await page.evaluateOnNewDocument(() => {
+        Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    });
+
     await page.goto('https://www.uob.co.id/personal/information/foreign-exchange-rates.page');
 
     await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 5000)));
     const html = await page.content();
     await browser.close();
-
     const dom = new JSDOM(html);
     const document = dom.window.document;
 
