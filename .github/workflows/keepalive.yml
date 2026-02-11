@@ -1,0 +1,33 @@
+name: Keep Alive
+
+on:
+  schedule:
+    - cron: '0 2 1 * *' # 1 числа кожного місяця о 02:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Git
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+      - name: Update last-run file
+        run: |
+          echo "Last keep-alive run: $(date -u)" > last-run.txt
+
+      - name: Commit changes
+        run: |
+          git add last-run.txt
+          git commit -m "chore: update keep-alive timestamp" || echo "No changes"
+
+      - name: Push changes
+        run: git push
