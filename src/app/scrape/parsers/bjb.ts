@@ -30,7 +30,9 @@ export async function parseBJB() {
         'Cache-Control': 'no-cache',
         'Upgrade-Insecure-Requests': '1',
     });
-    await page.goto('https://www.bankbjb.co.id/page/daftar-kurs');
+    await page.goto('https://www.bankbjb.co.id/page/daftar-kurs', {
+        waitUntil: 'domcontentloaded',
+    });
 
     await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 5000)));
     const html = await page.content();
