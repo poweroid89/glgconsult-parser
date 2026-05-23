@@ -38,12 +38,8 @@ export async function GET() {
         const hasContainer = html.includes('order-2');
         const hasRates = html.includes('border-b border-black');
 
-        return Response.json({
-            url,
-            htmlLength: html.length,
-            hasContainer,
-            hasRates,
-            preview: html.slice(0, 2000),
+        return new Response(html, {
+            headers: { 'Content-Type': 'text/html' },
         });
 
     } catch (err) {
