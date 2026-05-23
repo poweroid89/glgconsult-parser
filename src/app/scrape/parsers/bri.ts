@@ -6,14 +6,14 @@ export async function parseBRI(): Promise<{ bank: string; rates: Record<string, 
     const browser = await puppeteer.launch({
         args: [
             ...(chromium.args || []),
-            '--disable-blink-features=AutomationControlled', // Відключаємо автоматизацію
-            '--disable-dev-shm-usage', // Уникаємо проблем із пам’яттю в Docker
-            '--no-sandbox', // Для сумісності з серверним середовищем
+            '--disable-blink-features=AutomationControlled',
+            '--disable-dev-shm-usage',
+            '--no-sandbox',
             '--disable-setuid-sandbox',
-            '--disable-web-security', // Вимикаємо CORS для тестування
-            '--disable-features=site-per-process', // Уникаємо ізоляції сайтів
-            '--enable-features=NetworkService,NetworkServiceInProcess', // Увімкнення мережевих функцій
-            '--window-size=1920,1080', // Реалістичний розмір вікна
+            '--disable-web-security',
+            '--disable-features=site-per-process',
+            '--enable-features=NetworkService,NetworkServiceInProcess',
+            '--window-size=1920,1080',
         ],
         executablePath: await chromium.executablePath(),
         headless: true,
@@ -22,65 +22,38 @@ export async function parseBRI(): Promise<{ bank: string; rates: Record<string, 
 
     const page = await browser.newPage();
 
-    // Логи браузера для дебагу
-    page.on('console', msg => console.log('[BROWSER]', msg.type(), msg.text()));
-    page.on('pageerror', err => console.error('[PAGE ERROR]', err));
-
-    await page.setRequestInterception(true);
-    page.on("request", (req) => {
-        if (req.url().includes("jquery.dataTables.min.js")) {
-            req.abort();
-        } else {
-            req.continue();
-        }
-    });
-
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
     await page.setExtraHTTPHeaders({
-        'referer': 'https://www.google.com/',
-        'accept-language': 'en-US,en;q=0.9,uk;q=0.8',
-        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-        'connection': 'keep-alive',
-        'cache-control': 'no-cache',
-        'upgrade-insecure-requests': '1',
+        'Referer': 'https://www.google.com/',
+        'Accept-Language': 'en-US,en;q=0.9,uk;q=0.8',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+        'Connection': 'keep-alive',
+        'Cache-Control': 'no-cache',
+        'Upgrade-Insecure-Requests': '1',
     });
 
     try {
-        console.log('Відкриваємо сторінку...');
         await page.goto('https://bri.co.id/web/guest/kurs-detail', {
-            waitUntil: 'domcontentloaded', // не networkidle2 — щоб не зависало
-            timeout: 30000,
+            waitUntil: 'domcontentloaded',
         });
 
-        console.log('URL після переходу:', page.url());
+        // Чекаємо JS як у parseBJB
+        await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 5000)));
 
         const exchangeRates: Record<string, { buy: number; sell: number }> = {};
-        let hasNextPage = true;
 
         const containerSelector = 'div.w-1\\/2.mdmax\\:w-full.px-10.order-2';
         const rowSelector = `${containerSelector} div.flex.items-center.border-b.border-black`;
 
-        console.log('Чекаємо контейнер...');
-        await page.waitForSelector(containerSelector, { timeout: 15000 })
-            .then(() => console.log('✅ Контейнер знайдено'))
-            .catch(async () => {
-                console.error('❌ Контейнер НЕ знайдено, перші 3000 символів HTML:');
-                const html = await page.evaluate(() => document.body.innerHTML.slice(0, 3000));
-                console.log(html);
-            });
+        let hasNextPage = true;
 
-        let pageNum = 1;
         while (hasNextPage) {
-            console.log(`Парсимо сторінку ${pageNum}...`);
             const html: string = await page.content();
             const dom = new JSDOM(html);
             const doc = dom.window.document;
 
-            const rows = doc.querySelectorAll(rowSelector);
-            console.log(`Знайдено рядків: ${rows.length}`);
-
-            rows.forEach((row: Element) => {
+            doc.querySelectorAll(rowSelector).forEach((row: Element) => {
                 const divs = row.children;
                 if (divs.length >= 3) {
                     const currencyRaw = divs[0].textContent?.trim() || '';
@@ -91,43 +64,33 @@ export async function parseBRI(): Promise<{ bank: string; rates: Record<string, 
                     const sellText = divs[2].textContent?.trim() ?? '0';
 
                     if (currency && currency !== 'KURS' && currency !== 'BUY') {
-                        const buy = parseNumberSafe(buyText.replace(/,/g, ''));
-                        const sell = parseNumberSafe(sellText.replace(/,/g, ''));
-                        exchangeRates[currency] = { buy, sell };
-                        console.log(`  ${currency}: buy=${buy}, sell=${sell}`);
+                        exchangeRates[currency] = {
+                            buy: parseNumberSafe(buyText.replace(/,/g, '')),
+                            sell: parseNumberSafe(sellText.replace(/,/g, '')),
+                        };
                     }
                 }
             });
 
-            const nextButtonSelector: string | null = await page.evaluate((selector: string): string | null => {
+            hasNextPage = await page.evaluate((selector: string): boolean => {
                 const container = document.querySelector(selector);
-                if (!container) return null;
+                if (!container) return false;
 
                 const buttons = Array.from(container.querySelectorAll('button'));
                 const nextButton = buttons.find(btn => btn.textContent?.trim() === 'Next');
 
                 if (nextButton && !nextButton.hasAttribute('disabled') && !nextButton.classList.contains('cursor-not-allowed')) {
-                    nextButton.setAttribute('data-puppeteer-next', 'true');
-                    return '[data-puppeteer-next="true"]';
+                    (nextButton as HTMLButtonElement).click();
+                    return true;
                 }
-                return null;
+                return false;
             }, containerSelector);
 
-            if (nextButtonSelector) {
-                console.log('Клікаємо Next...');
-                await page.click(nextButtonSelector);
-                await page.evaluate((): void => {
-                    document.querySelector('[data-puppeteer-next="true"]')?.removeAttribute('data-puppeteer-next');
-                });
-                await new Promise<void>(resolve => setTimeout(resolve, 2000));
-                pageNum++;
-            } else {
-                console.log('Кнопки Next немає — завершуємо');
-                hasNextPage = false;
+            if (hasNextPage) {
+                await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 1500)));
             }
         }
 
-        console.log('\n✅ Результат:', JSON.stringify(exchangeRates, null, 2));
         return { bank: "bri.co.id", rates: exchangeRates };
     } finally {
         await browser.close();
