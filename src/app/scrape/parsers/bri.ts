@@ -15,14 +15,12 @@ export async function parseBRI(): Promise<{ bank: string; rates: Record<string, 
             '--window-size=1920,1080',
         ],
         executablePath: await chromium.executablePath(),
-        headless: chromium.headless, // Використовуйте нативне значення від sparticuz
+        headless: chromium.headless as boolean, // Явно кажемо, що це boolean
         defaultViewport: { width: 1920, height: 1080 },
     });
 
     const page = await browser.newPage();
 
-    // УВАГА: Якщо пагінація зламається, закоментуйте цей блок перехоплення.
-    // Перехоплення запитів часто ламає JS-скрипти самого сайту.
     await page.setRequestInterception(true);
     page.on("request", (req) => {
         if (req.url().includes("jquery.dataTables.min.js")) {
@@ -34,7 +32,6 @@ export async function parseBRI(): Promise<{ bank: string; rates: Record<string, 
 
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
-    // Навіщо виставляти хедери двічі? Залишаємо один чистий виклик.
     await page.setExtraHTTPHeaders({
         'referer': 'https://www.google.com/',
         'accept-language': 'en-US,en;q=0.9,uk;q=0.8',
@@ -49,11 +46,9 @@ export async function parseBRI(): Promise<{ bank: string; rates: Record<string, 
     const exchangeRates: Record<string, { buy: number; sell: number }> = {};
     let hasNextPage = true;
 
-    // Селектори
     const containerSelector = 'div.w-1\\/2.mdmax\\:w-full.px-10.order-2';
     const rowSelector = `${containerSelector} div.flex.items-center.border-b.border-black`;
 
-    // Чекаємо на появу контейнера на сторінці
     await page.waitForSelector(containerSelector, { timeout: 15000 }).catch(() => {
         console.error("Контейнер з курсами не знайдено за таймаутом");
     });
@@ -84,19 +79,16 @@ export async function parseBRI(): Promise<{ bank: string; rates: Record<string, 
             }
         });
 
-        // БЕЗПЕЧНА ПЕРЕВІРКА ПАГІНАЦІЇ
-        // Передаємо containerSelector всередину браузера першим аргументом
-        const nextButtonSelector = await page.evaluate((selector) => {
+        // Додаємо сувору типізацію для аргументу (selector: string) 
+        // та повертаємо тип string | null
+        const nextButtonSelector: string | null = await page.evaluate((selector: string): string | null => {
             const container = document.querySelector(selector);
             if (!container) return null;
 
             const buttons = Array.from(container.querySelectorAll('button'));
-            // Шукаємо кнопку з текстом Next, яка не відключена
             const nextButton = buttons.find(btn => btn.textContent?.trim() === 'Next');
 
             if (nextButton && !nextButton.hasAttribute('disabled') && !nextButton.classList.contains('cursor-not-allowed')) {
-                // Повертаємо унікальний шлях до кнопки, щоб клікнути по ній ззовні (через Puppeteer)
-                // Оскільки ID немає, додамо тимчасовий атрибут для точного кліку
                 nextButton.setAttribute('data-puppeteer-next', 'true');
                 return '[data-puppeteer-next="true"]';
             }
@@ -104,14 +96,12 @@ export async function parseBRI(): Promise<{ bank: string; rates: Record<string, 
         }, containerSelector);
 
         if (nextButtonSelector) {
-            // Клікаємо нативним методом Puppeteer (імітує рух миші, обходить захист)
             await page.click(nextButtonSelector);
-            // Прибираємо тимчасовий атрибут
-            await page.evaluate(() => {
+
+            await page.evaluate((): void => {
                 document.querySelector('[data-puppeteer-next="true"]')?.removeAttribute('data-puppeteer-next');
             });
 
-            // Чекаємо оновлення контенту
             await new Promise<void>(resolve => setTimeout(resolve, 2000));
         } else {
             hasNextPage = false;
