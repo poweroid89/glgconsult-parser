@@ -36,12 +36,16 @@ export async function parseBRI(): Promise<{ bank: string; rates: Record<string, 
             waitUntil: 'domcontentloaded',
         });
 
-        const html = await page.content();
+        const html = await page.evaluate(() => {
+            const scripts = Array.from(document.querySelectorAll('script'));
+            const script = scripts.find(s => s.textContent?.includes('listTable'));
+            return script?.textContent || '';
+        });
 
-        const match = html.match(/"listTable":(\[[\s\S]*?\](?=,\s*"list))/);
+        const match = html.match(/\\"listTable\\":(\[[\s\S]*?\])(?=,\\"listCurrency\\")/);
         if (!match) throw new Error('listTable not found');
 
-        const listTable = JSON.parse(match[1]) as Array<{
+        const listTable = JSON.parse(match[1].replace(/\\"/g, '"')) as Array<{
             currency: string;
             buyRateERate: string;
             sellRateERate: string;
