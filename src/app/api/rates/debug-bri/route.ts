@@ -29,12 +29,20 @@ export async function GET() {
             timeout: 8000,
         });
 
+        // Чекаємо 5 секунд щоб React відрендерив дані
+        await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 5000)));
+
         const url = page.url();
         const html = await page.content();
+
+        const hasContainer = html.includes('order-2');
+        const hasRates = html.includes('border-b border-black');
 
         return Response.json({
             url,
             htmlLength: html.length,
+            hasContainer,
+            hasRates,
             preview: html.slice(0, 2000),
         });
 
