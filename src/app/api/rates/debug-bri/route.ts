@@ -24,7 +24,7 @@ export async function GET() {
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
     try {
-        await page.goto('https://bri.co.id/web/guest/kurs-detail', {
+        await page.goto('https://www.bankmandiri.co.id/web/guest/kurs', {
             waitUntil: 'domcontentloaded',
             timeout: 8000,
         });
@@ -32,11 +32,7 @@ export async function GET() {
         // Чекаємо 5 секунд щоб React відрендерив дані
         await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 5000)));
 
-        const url = page.url();
         const html = await page.content();
-
-        const hasContainer = html.includes('order-2');
-        const hasRates = html.includes('border-b border-black');
 
         return new Response(html, {
             headers: { 'Content-Type': 'text/html' },
